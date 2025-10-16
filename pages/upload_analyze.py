@@ -112,7 +112,55 @@ def show_page():
                 
                 with button_col1:
                     if st.button(f"🔍 Analyze", key=f"analyze_{upload['id']}"):
-                        st.info("🚀 AI analysis feature coming soon! Currently generating basic reports.")
+                        # Import AI analyzer
+                        from ai_analyzer import analyze_kidney_scan
+                        from database import get_ai_analysis, save_ai_analysis, get_user_demographics
+                        
+                        # Check if already analyzed
+                        existing_analysis = get_ai_analysis(upload['id'])
+                        
+                        if existing_analysis:
+                            st.success("✅ Scan already analyzed! View results in the Reports section.")
+                        else:
+                            with st.spinner("🔄 Analyzing scan with AI..."):
+                                # Get user demographics for context
+                                demographics = get_user_demographics(st.session_state.username)
+                                
+                                # Find the file path
+                                from database import get_connection
+                                conn = get_connection()
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT file_path FROM uploads WHERE id = ?", (upload['id'],))
+                                result = cursor.fetchone()
+                                conn.close()
+                                
+                                if result:
+                                    file_path = result[0]
+                                    
+                                    # Perform AI analysis
+                                    analysis_result = analyze_kidney_scan(file_path, demographics)
+                                    
+                                    if analysis_result['success']:
+                                        analysis_data = analysis_result['analysis']
+                                        
+                                        # Save analysis to database
+                                        analysis_id = save_ai_analysis(
+                                            upload['id'],
+                                            st.session_state.username,
+                                            analysis_data,
+                                            risk_level=analysis_data.get('risk_level'),
+                                            confidence_score=analysis_data.get('confidence_score')
+                                        )
+                                        
+                                        if analysis_id:
+                                            st.success("✅ AI Analysis completed successfully!")
+                                            st.rerun()
+                                        else:
+                                            st.error("Failed to save analysis results")
+                                    else:
+                                        st.error(f"Analysis failed: {analysis_result['error']}")
+                                else:
+                                    st.error("File not found")
                 
                 with button_col2:
                     if st.button(f"📋 View Report", key=f"report_{upload['id']}"):

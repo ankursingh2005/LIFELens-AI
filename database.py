@@ -21,6 +21,8 @@ def init_database():
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             full_name TEXT NOT NULL,
+            security_question TEXT,
+            security_answer_hash TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -66,6 +68,21 @@ def init_database():
             generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_email) REFERENCES users (email),
             FOREIGN KEY (upload_id) REFERENCES uploads (id)
+        )
+    ''')
+    
+    # AI Analysis table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS ai_analysis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            upload_id INTEGER NOT NULL,
+            user_email TEXT NOT NULL,
+            analysis_data TEXT NOT NULL,
+            risk_level TEXT,
+            confidence_score INTEGER,
+            analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (upload_id) REFERENCES uploads (id),
+            FOREIGN KEY (user_email) REFERENCES users (email)
         )
     ''')
     
@@ -296,3 +313,186 @@ def get_user_reports(user_email):
     except Exception as e:
         print(f"Error getting reports: {str(e)}")
         return []
+
+def save_ai_analysis(upload_id, user_email, analysis_data, risk_level=None, confidence_score=None):
+    """Save AI analysis results"""
+    try:
+        import json
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO ai_analysis (upload_id, user_email, analysis_data, risk_level, confidence_score)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (upload_id, user_email, json.dumps(analysis_data), risk_level, confidence_score))
+        
+        analysis_id = cursor.lastrowid
+        
+        # Update upload status to completed
+        cursor.execute('''
+            UPDATE uploads SET analysis_status = 'completed' WHERE id = ?
+        ''', (upload_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return analysis_id
+    
+    except Exception as e:
+        print(f"Error saving AI analysis: {str(e)}")
+        return None
+
+def get_ai_analysis(upload_id):
+    """Get AI analysis for a specific upload"""
+    try:
+        import json
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, analysis_data, risk_level, confidence_score, analyzed_at
+            FROM ai_analysis WHERE upload_id = ?
+            ORDER BY analyzed_at DESC LIMIT 1
+        ''', (upload_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            return {
+                'id': result[0],
+                'analysis_data': json.loads(result[1]),
+                'risk_level': result[2],
+                'confidence_score': result[3],
+                'analyzed_at': result[4]
+            }
+        return None
+    
+    except Exception as e:
+        print(f"Error getting AI analysis: {str(e)}")
+        return None
+
+def get_all_user_analyses(user_email):
+    """Get all AI analyses for a user"""
+    try:
+        import json
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT a.id, a.upload_id, a.analysis_data, a.risk_level, a.confidence_score, a.analyzed_at, u.filename
+            FROM ai_analysis a
+            JOIN uploads u ON a.upload_id = u.id
+            WHERE a.user_email = ?
+            ORDER BY a.analyzed_at DESC
+        ''', (user_email,))
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        analyses = []
+        for row in results:
+            analyses.append({
+                'id': row[0],
+                'upload_id': row[1],
+                'analysis_data': json.loads(row[2]),
+                'risk_level': row[3],
+                'confidence_score': row[4],
+                'analyzed_at': row[5],
+                'filename': row[6]
+            })
+        
+        return analyses
+    
+    except Exception as e:
+        print(f"Error getting user analyses: {str(e)}")
+        return []
+
+def update_security_question(email, question, answer):
+    """Update user's security question and answer"""
+    try:
+        from auth import hash_password
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        answer_hash = hash_password(answer.lower().strip())
+        
+        cursor.execute('''
+            UPDATE users 
+            SET security_question = ?, security_answer_hash = ?
+            WHERE email = ?
+        ''', (question, answer_hash, email))
+        
+        conn.commit()
+        conn.close()
+        return True
+    
+    except Exception as e:
+        print(f"Error updating security question: {str(e)}")
+        return False
+
+def get_security_question(email):
+    """Get user's security question"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT security_question FROM users WHERE email = ?
+        ''', (email,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        return result[0] if result and result[0] else None
+    
+    except Exception as e:
+        print(f"Error getting security question: {str(e)}")
+        return None
+
+def verify_security_answer(email, answer):
+    """Verify user's security answer"""
+    try:
+        from auth import hash_password
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT security_answer_hash FROM users WHERE email = ?
+        ''', (email,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result and result[0]:
+            answer_hash = hash_password(answer.lower().strip())
+            return answer_hash == result[0]
+        
+        return False
+    
+    except Exception as e:
+        print(f"Error verifying security answer: {str(e)}")
+        return False
+
+def reset_password(email, new_password):
+    """Reset user's password"""
+    try:
+        from auth import hash_password
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        password_hash = hash_password(new_password)
+        
+        cursor.execute('''
+            UPDATE users 
+            SET password_hash = ?
+            WHERE email = ?
+        ''', (password_hash, email))
+        
+        conn.commit()
+        conn.close()
+        return True
+    
+    except Exception as e:
+        print(f"Error resetting password: {str(e)}")
+        return False
