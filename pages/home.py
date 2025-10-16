@@ -56,8 +56,7 @@ def show_page():
             st.info("📝 Complete your demographics to see personalized health insights!")
     
     with col2:
-        st.image("https://via.placeholder.com/300x200/1f77b4/ffffff?text=Kidney+Health", 
-                 caption="Your kidney health matters")
+        st.info("🫘 **LIFELens-AI**\n\nYour comprehensive kidney health monitoring platform powered by AI technology.")
     
     # Quick actions
     st.subheader("🚀 Quick Actions")

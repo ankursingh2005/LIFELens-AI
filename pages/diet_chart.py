@@ -175,10 +175,11 @@ def show_page():
     st.markdown("### 📥 Download Your Diet Plan")
     
     # Generate downloadable content
+    import datetime
     diet_text = f"""
 LIFELens-AI Personalized Diet Plan
 Generated for: {st.session_state.username}
-Date: {st.datetime.datetime.now().strftime("%Y-%m-%d")}
+Date: {datetime.datetime.now().strftime("%Y-%m-%d")}
 
 BREAKFAST OPTIONS:
 {chr(10).join(['• ' + item for item in diet_plan["breakfast"]])}
