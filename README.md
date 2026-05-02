@@ -142,7 +142,7 @@ LIFE Lens-AI is developed strictly for **educational, research, and demonstratio
 ## 13. Project Information
 
 * **Project Name**: LIFE Lens-AI – Kidney Stone Management System
-* **Developed By**: Ankur Singh
+* **Developed By**: Ankur Singh, Sumit Kumar Singh, Anjali Mathur
 * **Domain**: AI in Healthcare | Data Analytics | Machine Learning
 * **Purpose**: Academic Project / Research & Skill Demonstration
 
